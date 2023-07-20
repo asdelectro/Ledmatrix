@@ -36,6 +36,14 @@ static const char *TAG = "example";
 
 #include "lwip/apps/sntp.h"
 
+#include "shtc3.h"
+#include "als303.h"
+
+
+#define SENSOR_ADDR_SHT 0x70
+#define SENSOR_ADDR_ALS 0x29
+
+
 
 static void time_init(void);
 
@@ -312,6 +320,58 @@ int for_chet[48]={138,139,140,141,142,143,154,155,156,157,158,159,170,171,172,17
 //razdelitel
 uint8_t razdel[10]={56,72,88,104,120,136,152,168,184,200};
 
+static void light_measure(void *pvParameter)
+{
+
+
+  init_sensor_als(I2C_MODE_MASTER, 33, 14, I2C_MASTER_FREQ_100KHZ);
+  start_get_data(SENSOR_ADDR_ALS);
+  setup(SENSOR_ADDR_ALS);
+  uint8_t data_av=0;
+  float light=0;
+   while (1)
+    {
+        //get_ID_sensor(SENSOR_ADDR);
+       // ControlRegisters(SENSOR_ADDR);
+       // ALS_Measurement_Rates(SENSOR_ADDR);
+
+   
+   status(SENSOR_ADDR_ALS,&data_av);
+   printf("data:%x\n",data_av);
+   light=0;
+   if(data_av==4){
+   get_data(SENSOR_ADDR_ALS,&light);
+   }
+    //read_out(SENSOR_ADDR);
+
+      //  wakeup_sensor(SENSOR_ADDR);
+      
+        //read_out(SENSOR_ADDR, T_FIRST_N, &temperature, &humidity);
+       // sleep_sensor(SENSOR_ADDR);
+        ESP_LOGI(TAG, "Light: %f", light);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    
+}
+
+static void temp_hum_measure(void *pvParameter)
+{
+ init_sensor(I2C_MODE_MASTER, 25, 26, I2C_MASTER_FREQ_100KHZ);
+
+    while (1)
+    {
+        //get_ID_sensor(SENSOR_ADDR);
+
+        wakeup_sensor(SENSOR_ADDR_SHT);
+        float temperature =0, humidity =0;
+        read_out(SENSOR_ADDR_SHT, T_FIRST_N, &temperature, &humidity);
+        sleep_sensor(SENSOR_ADDR_SHT);
+        ESP_LOGI(TAG, "Temperature: %f, Humidade: %f", temperature, humidity);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+    
+}
+
 
 static void matrixUpdate(void *pvParameter)
 {
@@ -486,8 +546,12 @@ void app_main(void)
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
     time_init(); 
+ 
+
 
     xTaskCreate(&matrixUpdate, "updateMatrix", 2096, NULL, 5, NULL);
+    xTaskCreate(&temp_hum_measure, "temp_hum", 2096, NULL, 5, NULL);
+    xTaskCreate(&light_measure, "light", 4096, NULL, 5, NULL);
     
     while (true) {
         
