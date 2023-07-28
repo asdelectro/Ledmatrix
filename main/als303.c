@@ -11,7 +11,6 @@ static const char *TAG = "ALS";
 float Calculate_Lux(uint16_t Channel0Data, uint16_t Channel1Data)
 {
     float ratio, ALS_LUX;
-
     ratio = Channel1Data/(Channel0Data + Channel1Data);
 
     if (ratio < 0.45)
@@ -240,8 +239,14 @@ esp_err_t get_data(uint8_t addr,float *LUX)
      printf("%x,%x,%x,%x\n",data[0],data[1],data[2],data[3]);
       uint16_t ALS_CH1_ADC_Data=(data[1] << 8) | data[0];
       uint16_t ALS_CH0_ADC_Data=(data[3] << 8) | data[2];
+      if((ALS_CH1_ADC_Data+ALS_CH0_ADC_Data)>0){
+        *LUX= Calculate_Lux(ALS_CH0_ADC_Data,ALS_CH1_ADC_Data);
+      }else{
+        *LUX= 0;
+        printf("No light\n");
+      }
 
-     *LUX= Calculate_Lux(ALS_CH0_ADC_Data,ALS_CH1_ADC_Data);
+     
     // printf("CH1:%d,CH0:%d\n",ALS_CH1_ADC_Data,ALS_CH0_ADC_Data);
     // printf("%f",lux);
 

@@ -39,9 +39,28 @@ static const char *TAG = "example";
 #include "shtc3.h"
 #include "als303.h"
 
+#include "esp_http_client.h"
+
+
+
+char api_key[] = "WR3QEDM9KWWGC1Z0";
+
+
 
 #define SENSOR_ADDR_SHT 0x70
 #define SENSOR_ADDR_ALS 0x29
+
+
+#define FLAG_TIME 0
+#define FLAG_SHT_SENSOR 1
+#define FLAG_ALS_SENSOR 2
+uint8_t FLAG_NOW=1;
+char SHT_DATA[10];
+uint8_t ALS_DATA[10];
+
+float temperature =0, humidity =0; 
+float light=0;
+
 
 
 
@@ -64,6 +83,71 @@ static bool ONCE = true;
 #define EXAMPLE_ESP_WIFI_SSID      "KARATAS"
 #define EXAMPLE_ESP_WIFI_PASS      "2208mefta"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  30
+
+///
+#define THINGSPEAK_API_KEY "YOUR_KEY"
+
+// HTTP event handler
+esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
+    switch(evt->event_id) {
+        case HTTP_EVENT_ERROR:
+            ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
+            break;
+        case HTTP_EVENT_HEADER_SENT:
+            ESP_LOGI(TAG, "HTTP_EVENT_HEADER_SENT");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            break;
+    }
+    return ESP_OK;
+}
+
+void http_post_task(void *pvParameters) {
+    char post_data[256];
+    while (1) {
+
+        sprintf(post_data, "api_key=%s&field1=%.2f&field2=%.2f&field3=%0.2f",
+                THINGSPEAK_API_KEY, temperature, humidity, light);
+
+        esp_http_client_config_t config = {
+            .url = "https://api.thingspeak.com/update",
+            .event_handler = _http_event_handler,
+        };
+        esp_http_client_handle_t client = esp_http_client_init(&config);
+
+        esp_http_client_set_method(client, HTTP_METHOD_POST);
+        esp_http_client_set_post_field(client, post_data, strlen(post_data));
+
+        esp_err_t err = esp_http_client_perform(client);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
+                     esp_http_client_get_status_code(client),
+                     esp_http_client_get_content_length(client));
+        } else {
+            ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+        }
+
+        esp_http_client_cleanup(client);
+
+        vTaskDelay(pdMS_TO_TICKS(60000)); // Пауза в 10 секунд перед следующей отправкой
+    }
+}
+
+
+///
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
@@ -328,7 +412,7 @@ static void light_measure(void *pvParameter)
   start_get_data(SENSOR_ADDR_ALS);
   setup(SENSOR_ADDR_ALS);
   uint8_t data_av=0;
-  float light=0;
+
    while (1)
     {
         //get_ID_sensor(SENSOR_ADDR);
@@ -363,10 +447,13 @@ static void temp_hum_measure(void *pvParameter)
         //get_ID_sensor(SENSOR_ADDR);
 
         wakeup_sensor(SENSOR_ADDR_SHT);
-        float temperature =0, humidity =0;
+       
         read_out(SENSOR_ADDR_SHT, T_FIRST_N, &temperature, &humidity);
         sleep_sensor(SENSOR_ADDR_SHT);
-        ESP_LOGI(TAG, "Temperature: %f, Humidade: %f", temperature, humidity);
+        ESP_LOGI(TAG, "Temperature: %0.2f, Humidade: %0.2f", temperature, humidity);
+      sprintf(SHT_DATA,"%0.2f:%0.2f",temperature,humidity);
+        printf("DATA_SHT: %s\n",SHT_DATA);
+      //  printf()
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
     
@@ -414,45 +501,65 @@ static void matrixUpdate(void *pvParameter)
     ESP_LOGI(TAG, "LED Rainbow Chase Start");
 
     
-
+if(FLAG_NOW==FLAG_TIME){
+    
+}
 uint8_t ottenok=50;
 uint8_t yarkost=7;
 uint8_t nextPixel=0;
 
 
 while(true){
+// Build RGB values
+ hue = 2* 360 / CONFIG_EXAMPLE_STRIP_LED_NUMBER + start_rgb;
+led_strip_hsv2rgb(hue, ottenok,yarkost, &red, &green, &blue);
 
+if(FLAG_NOW==FLAG_TIME)
+{
 time(&now);
 localtime_r(&now, &timeinfo);
 strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
 ESP_LOGI(TAG, "TIME INFO: The Moscow date/time is: %s", strftime_buf);
-printf("H1:%d\n",strftime_buf[11]-48);
-printf("H2:%d\n",strftime_buf[12]-48);
-printf("M1:%d\n",strftime_buf[14]-48);
-printf("M2:%d\n",strftime_buf[15]-48);
-
+//printf("H1:%d\n",strftime_buf[11]-48);
+//printf("H2:%d\n",strftime_buf[12]-48);
+//printf("M1:%d\n",strftime_buf[14]-48);
+//printf("M2:%d\n",strftime_buf[15]-48);
 ind=!ind;
-printf("Ind:%d\n",ind);
-
+//printf("Ind:%d\n",ind);
+//set time
 H1=strftime_buf[11]-48;
 H2=strftime_buf[12]-48;
 M1=strftime_buf[14]-48;
 M2=strftime_buf[15]-48;
+if(ind){
+    ESP_ERROR_CHECK(strip->set_pixel(strip, 119 , red, green, blue)); 
+    ESP_ERROR_CHECK(strip->set_pixel(strip, 120 , red, green, blue)); 
+}
+}else if(FLAG_NOW==FLAG_SHT_SENSOR){
+
+
+ESP_ERROR_CHECK(strip->set_pixel(strip, 32 , red, green, blue)); 
+ESP_ERROR_CHECK(strip->set_pixel(strip, 33 , red, green, blue)); 
+ESP_ERROR_CHECK(strip->set_pixel(strip, 34 , red, green, blue)); 
+
+ESP_ERROR_CHECK(strip->set_pixel(strip, 49 , red, green, blue));
+ESP_ERROR_CHECK(strip->set_pixel(strip, 65 , red, green, blue));
+H1=SHT_DATA[0]-48;
+H2=SHT_DATA[1]-48;
+M1=SHT_DATA[6]-48;
+M2=SHT_DATA[7]-48;
+printf("H1:%d\n",SHT_DATA[0]-48);
+printf("H2:%d\n",SHT_DATA[1]-48);
+printf("M1:%d\n",SHT_DATA[3]-48);
+printf("M2:%d\n",SHT_DATA[4]-48);
+
+
+}
 
 
 
 
-	 // Build RGB values
-                hue = 2* 360 / CONFIG_EXAMPLE_STRIP_LED_NUMBER + start_rgb;
-                led_strip_hsv2rgb(hue, ottenok,yarkost, &red, &green, &blue);
-
-               // ESP_ERROR_CHECK(strip->set_pixel(strip, 1, red, green, blue));
-           
-                //ESP_ERROR_CHECK(strip->set_pixel(strip, i * 16 + j, 0, 0, 0));
- //ESP_ERROR_CHECK(strip->refresh(strip, 256));  
- 
-
-                for(int i=0;i<48;i++){
+ for(int i=0;i<48;i++){
                     
                     //1
                     nextPixel=one_chet[i]*Mas[H1][i];
@@ -463,7 +570,7 @@ M2=strftime_buf[15]-48;
                     }
 
                     //2
-                    nextPixel=two_chet[i]*Mas[M1][i];
+                    nextPixel=two_chet[i]*Mas[H2][i];
                     if(nextPixel){
                     ESP_ERROR_CHECK(strip->set_pixel(strip, nextPixel , red, green, blue));
                     }else{
@@ -471,7 +578,7 @@ M2=strftime_buf[15]-48;
                     }
 
                      //3
-                    nextPixel=thr_chet[i]*Mas[H2][i];
+                    nextPixel=thr_chet[i]*Mas[M1][i];
                     if(nextPixel){
                     ESP_ERROR_CHECK(strip->set_pixel(strip, nextPixel , red, green, blue));
                     }else{
@@ -484,30 +591,16 @@ M2=strftime_buf[15]-48;
                     ESP_ERROR_CHECK(strip->set_pixel(strip, nextPixel , red, green, blue));
                     }else{
                     ESP_ERROR_CHECK(strip->set_pixel(strip, nextPixel, 0, 0, 0));
-                    }
-
-                  
-
-                   
-                   
-                    
+                    }	
 
                     
-                }
+ }
                 printf("\n");
-if(ind){
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 40 , red, green, blue)); 
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 56 , red, green, blue)); 
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 72 , red, green, blue)); 
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 88 , red, green, blue)); 
 
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 168 , red, green, blue)); 
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 184 , red, green, blue)); 
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 200 , red, green, blue)); 
-    ESP_ERROR_CHECK(strip->set_pixel(strip, 216 , red, green, blue)); 
+ 
 
 
-}
+
 vTaskDelay(10/ portTICK_PERIOD_MS);  
 
 // Flush RGB values to LEDs
@@ -525,6 +618,7 @@ vTaskDelay(10/ portTICK_PERIOD_MS);
 
     }
 }    
+
 
 
 
@@ -552,10 +646,12 @@ void app_main(void)
     xTaskCreate(&matrixUpdate, "updateMatrix", 2096, NULL, 5, NULL);
     xTaskCreate(&temp_hum_measure, "temp_hum", 2096, NULL, 5, NULL);
     xTaskCreate(&light_measure, "light", 4096, NULL, 5, NULL);
+    xTaskCreate(&http_post_task, "send_data_to_thingspeak", 8192, NULL, 6, NULL);
     
     while (true) {
         
-        vTaskDelay(1000/ portTICK_PERIOD_MS); 
+        FLAG_NOW=! FLAG_NOW;
+        vTaskDelay(10000/ portTICK_PERIOD_MS); 
                
  
     }
