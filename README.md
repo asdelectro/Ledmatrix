@@ -1,14 +1,14 @@
 
 # Custom ESP32 Board with WS2812 LED Matrix
 
-This project is designed for the ESP32 development framework (esp-idf) and is tailored to work with my custom ESP32 board. The board is equipped with 256 WS2812 LEDs, a buzzer, an LTR-303 light sensor, and an SHT3 temperature and humidity sensor. The main purpose of this project is to provide data visualization on the LED matrix and send the collected data to thingspeak.com for further visualization and analysis.
+This project is designed for the ESP32 development framework (esp-idf) and is tailored to work with my custom ESP32 board. The board is equipped with 256 WS2812 LEDs, a buzzer, an LTR-303 light sensor, and an SHTC3 temperature and humidity sensor. The main purpose of this project is to provide data visualization on the LED matrix and send the collected data to thingspeak.com for further visualization and analysis.
 
 ## Features
 
 - Custom ESP32 board with 256 WS2812 LEDs for creating captivating visual effects.
 - Built-in buzzer for sound output and notifications.
 - LTR-303 light sensor for detecting ambient light levels.
-- SHT3 temperature and humidity sensor for monitoring environmental conditions.
+- SHTC3 temperature and humidity sensor for monitoring environmental conditions.
 - Data visualization on the LED matrix, enabling dynamic and interactive displays.
 - Sending collected data to thingspeak.com for visualization and analysis.
 
